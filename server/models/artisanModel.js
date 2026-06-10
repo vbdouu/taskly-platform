@@ -161,9 +161,75 @@ async function trouverArtisanParUserId(userId) {
     return resultats[0];
 }
 
+// Recuperer le profil complet d'un artisan connecte
+async function trouverProfilArtisanCompletParUserId(userId) {
+    const sql = `
+        SELECT
+            artisans.id,
+            artisans.user_id,
+            artisans.service_id,
+            artisans.ville,
+            artisans.telephone,
+            artisans.description,
+            artisans.experience,
+            users.photo_profil,
+            users.nom,
+            users.prenom,
+            users.email,
+            users.role,
+            services.nom AS service_nom,
+            COALESCE(ROUND(AVG(avis.note), 1), 0) AS moyenne_notes,
+            COUNT(DISTINCT avis.id) AS total_avis
+        FROM artisans
+        JOIN users ON artisans.user_id = users.id
+        JOIN services ON artisans.service_id = services.id
+        LEFT JOIN avis ON avis.artisan_id = artisans.id
+        WHERE artisans.user_id = ?
+        GROUP BY
+            artisans.id,
+            artisans.user_id,
+            artisans.service_id,
+            artisans.ville,
+            artisans.telephone,
+            artisans.description,
+            artisans.experience,
+            users.photo_profil,
+            users.nom,
+            users.prenom,
+            users.email,
+            users.role,
+            services.nom
+    `;
+
+    const [resultats] = await db.promise().query(sql, [userId]);
+
+    return resultats[0];
+}
+
+// modifier le profil d'un artisan
+async function modifierProfilArtisan(userId, telephone, ville, description, experience) {
+    const sql = `
+        UPDATE artisans
+        SET telephone = ?, ville = ?, description = ?, experience = ?
+        WHERE user_id = ?
+    `;
+
+    const [resultat] = await db.promise().query(sql, [
+        telephone,
+        ville,
+        description,
+        experience,
+        userId
+    ]);
+
+    return resultat;
+}
+
 module.exports = { // on exporte les fonctions pour pouvoir les utiliser dans d'autres fichiers
     creerProfilArtisan,
     trouverTousLesArtisans,
     trouverArtisanParId,
-    trouverArtisanParUserId
+    trouverArtisanParUserId,
+    trouverProfilArtisanCompletParUserId,
+    modifierProfilArtisan
 };

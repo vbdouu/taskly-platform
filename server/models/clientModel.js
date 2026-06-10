@@ -29,7 +29,26 @@ async function trouverClientParUserId(userId) {
     return resultats[0];
 }
 
+// modifier le profil d'un client
+async function modifierProfilClient(userId, telephone, ville, adresse) {
+    const sql = `
+        UPDATE clients
+        SET telephone = ?, ville = ?, adresse = ?
+        WHERE user_id = ?
+    `;
+
+    const [resultat] = await db.promise().query(sql, [
+        telephone,
+        ville,
+        adresse,
+        userId
+    ]);
+
+    return resultat;
+}
+
 module.exports = {
     creerProfilClient,
-    trouverClientParUserId
+    trouverClientParUserId,
+    modifierProfilClient
 };

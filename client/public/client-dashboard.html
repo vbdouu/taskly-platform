@@ -44,30 +44,79 @@
           </div>
           <div class="panel-body">
             <div class="request-list" id="client-requests"></div>
+            <div class="dashboard-load-more" id="client-requests-controls" hidden>
+              <p class="muted text-small" id="client-requests-count"></p>
+              <button class="btn outline" id="client-load-more-btn" type="button">Afficher plus</button>
+            </div>
           </div>
         </section>
 
         <section class="panel" id="profil">
-          <div class="panel-header">
+          <div class="panel-header profile-panel-header">
             <h2>Mon profil</h2>
+            <button class="btn outline" id="client-edit-profile-btn" type="button">Modifier le profil</button>
           </div>
           <div class="panel-body">
             <div id="client-profile-card"></div>
-            <form id="client-photo-form" class="mt-22">
-              <label>
-                <span class="field-label">Photo de profil</span>
-                <input class="form-control" id="client-photo-input" type="file" accept="image/jpeg,image/png,image/webp">
-              </label>
-              <div class="request-actions">
-                <button class="btn primary" type="submit">Mettre à jour</button>
-                <button class="btn danger outline" type="button" id="client-photo-delete">Supprimer</button>
-              </div>
-            </form>
           </div>
         </section>
       </div>
     </section>
   </main>
+
+  <!-- Modale profil -->
+  <div id="client-profile-modal" class="modal-backdrop">
+    <div class="modal profile-edit-modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2>Modifier le profil</h2>
+        <button class="modal-close" type="button" data-close-modal="client-profile-modal">×</button>
+      </div>
+      <form class="modal-body profile-edit-form" id="client-profile-form">
+        <div class="profile-edit-photo">
+          <img class="profile-edit-photo-preview" id="client-profile-photo-preview" src="/images/defaults/avatar.png" alt="Photo de profil" onerror="this.src='/images/defaults/avatar.png'">
+          <div>
+            <label>
+              <span class="field-label">Photo de profil</span>
+              <input class="form-control" id="client-profile-photo" type="file" accept="image/jpeg,image/png,image/webp">
+            </label>
+            <button class="btn danger outline small mt-12" id="client-profile-photo-delete" type="button">Supprimer la photo</button>
+          </div>
+        </div>
+
+        <div class="profile-edit-grid">
+          <label>
+            <span class="field-label">Nom</span>
+            <input class="form-control profile-edit-readonly" id="client-profile-nom" type="text" readonly>
+          </label>
+          <label>
+            <span class="field-label">Prénom</span>
+            <input class="form-control profile-edit-readonly" id="client-profile-prenom" type="text" readonly>
+          </label>
+          <label class="profile-edit-full">
+            <span class="field-label">Email</span>
+            <input class="form-control profile-edit-readonly" id="client-profile-email" type="email" readonly>
+          </label>
+          <label>
+            <span class="field-label">Téléphone</span>
+            <input class="form-control" id="client-profile-telephone" type="tel" required>
+          </label>
+          <label>
+            <span class="field-label">Ville</span>
+            <input class="form-control" id="client-profile-ville" type="text" required>
+          </label>
+          <label class="profile-edit-full">
+            <span class="field-label">Adresse</span>
+            <input class="form-control" id="client-profile-adresse" type="text" required>
+          </label>
+        </div>
+
+        <div class="request-actions mt-22 justify-end">
+          <button class="btn outline" type="button" data-close-modal="client-profile-modal">Annuler</button>
+          <button class="btn primary" type="submit">Enregistrer les modifications</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Modale avis -->
   <div id="review-modal" class="modal-backdrop">

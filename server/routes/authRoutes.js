@@ -19,6 +19,12 @@ router.post("/logout", authController.deconnexion);
 // route pour recuperer l'utilisateur connecte
 router.get("/me", authController.utilisateurConnecte);
 
+// route pour recuperer le profil complet
+router.get("/profile", verifierConnexion, authController.recupererProfil);
+
+// route pour modifier le profil
+router.put("/profile", verifierConnexion, authController.modifierProfil);
+
 // Modifier la photo de profil
 router.put("/photo", verifierConnexion, uploadPhotoProfil.single("photo"), authController.modifierPhotoProfil);
 

@@ -1,4 +1,24 @@
 let demandesClient = [];
+let profilClientCourant = null;
+
+const DEMANDES_PAR_AFFICHAGE = 3;
+let nombreDemandesAffichees = DEMANDES_PAR_AFFICHAGE;
+
+let clientPhotoASupprimer = false;
+let clientPhotoTemporaireUrl = null;
+
+function valeurProfil(valeur) {
+  const texte = String(valeur ?? "").trim();
+  return texte || "Non précisé";
+}
+
+function synchroniserUtilisateurClient(utilisateur) {
+  if (!utilisateur) return;
+  window.utilisateurCourant = {
+    ...(window.utilisateurCourant || {}),
+    ...utilisateur
+  };
+}
 
 // Calculer les compteurs du client
 function statsDemandes(demandes) {
@@ -56,6 +76,34 @@ function carteDemandeClient(demande) {
   `;
 }
 
+function ajusterNombreDemandesAffichees() {
+  nombreDemandesAffichees = Math.min(
+    Math.max(nombreDemandesAffichees, DEMANDES_PAR_AFFICHAGE),
+    Math.max(demandesClient.length, DEMANDES_PAR_AFFICHAGE)
+  );
+}
+
+function afficherControlesDemandesClient() {
+  const controles = document.getElementById("client-requests-controls");
+  const compteur = document.getElementById("client-requests-count");
+  const bouton = document.getElementById("client-load-more-btn");
+  if (!controles || !compteur || !bouton) return;
+
+  const total = demandesClient.length;
+  const affiches = Math.min(nombreDemandesAffichees, total);
+
+  if (total <= DEMANDES_PAR_AFFICHAGE) {
+    controles.hidden = true;
+    compteur.textContent = "";
+    bouton.hidden = true;
+    return;
+  }
+
+  controles.hidden = false;
+  compteur.textContent = `${affiches} demande${affiches > 1 ? "s" : ""} affichée${affiches > 1 ? "s" : ""} sur ${total}`;
+  bouton.hidden = affiches >= total;
+}
+
 // Afficher les demandes du client
 function afficherDemandesClient() {
   const cible = document.getElementById("client-requests");
@@ -63,10 +111,13 @@ function afficherDemandesClient() {
 
   if (!demandesClient.length) {
     cible.innerHTML = etatVide("Aucune demande pour le moment. Parcourez les artisans pour démarrer.");
+    afficherControlesDemandesClient();
     return;
   }
 
-  cible.innerHTML = demandesClient.map(carteDemandeClient).join("");
+  const demandesVisibles = demandesClient.slice(0, nombreDemandesAffichees);
+  cible.innerHTML = demandesVisibles.map(carteDemandeClient).join("");
+  afficherControlesDemandesClient();
 }
 
 // Charger les demandes depuis le backend
@@ -77,10 +128,12 @@ async function chargerDemandesClient() {
   try {
     const data = await requeteAPI("/api/demandes/client");
     demandesClient = data.demandes || [];
+    ajusterNombreDemandesAffichees();
     afficherStatsClient();
     afficherDemandesClient();
   } catch (error) {
     if (cible) cible.innerHTML = etatVide(error.message);
+    afficherControlesDemandesClient();
   }
 }
 
@@ -110,9 +163,15 @@ function ouvrirSignalementClient(id) {
 // Initialiser les actions sur les demandes
 function initialiserActionsClient() {
   document.addEventListener("click", (event) => {
+    const chargerPlus = event.target.closest("#client-load-more-btn");
     const annuler = event.target.closest("[data-cancel-request]");
     const avis = event.target.closest("[data-open-review]");
     const signaler = event.target.closest("[data-open-report]");
+
+    if (chargerPlus) {
+      nombreDemandesAffichees += DEMANDES_PAR_AFFICHAGE;
+      afficherDemandesClient();
+    }
 
     if (annuler) annulerDemandeClient(annuler.dataset.cancelRequest);
     if (avis) ouvrirAvisClient(avis.dataset.openReview);
@@ -171,77 +230,194 @@ function initialiserActionsClient() {
   });
 }
 
+function mettreAJourBienvenueClient() {
+  const bienvenue = document.getElementById("client-welcome");
+  if (bienvenue && window.utilisateurCourant) {
+    bienvenue.textContent = `Bienvenue ${nomComplet(window.utilisateurCourant)}`;
+  }
+}
+
+// Charger le profil client complet
+async function chargerProfilClientDashboard() {
+  const cible = document.getElementById("client-profile-card");
+  if (cible) cible.innerHTML = etatChargement("Chargement du profil...");
+
+  const data = await requeteAPI("/api/auth/profile");
+  profilClientCourant = data;
+  synchroniserUtilisateurClient(data.utilisateur);
+  afficherProfilClient();
+  return data;
+}
+
 // Afficher le profil client
 function afficherProfilClient() {
   const cible = document.getElementById("client-profile-card");
   if (!cible || !window.utilisateurCourant) return;
-  const utilisateur = window.utilisateurCourant;
 
-  const bienvenue = document.getElementById("client-welcome");
-  if (bienvenue) {
-    bienvenue.textContent = `Bienvenue ${nomComplet(utilisateur)}`;
-  }
+  const utilisateur = profilClientCourant?.utilisateur || window.utilisateurCourant;
+  const profil = profilClientCourant?.profil || {};
+
+  mettreAJourBienvenueClient();
 
   cible.innerHTML = `
     <div class="profile-panel">
-      <img class="avatar large" id="client-photo-preview" src="${echapperHTML(imageProfil(utilisateur.photo_profil))}" alt="${echapperHTML(nomComplet(utilisateur))}" onerror="this.src='${DEFAULT_AVATAR}'">
+      <img class="avatar large" src="${echapperHTML(imageProfil(utilisateur.photo_profil))}" alt="${echapperHTML(nomComplet(utilisateur))}" onerror="this.src='${DEFAULT_AVATAR}'">
       <div>
         <h3>${echapperHTML(nomComplet(utilisateur))}</h3>
-        <p class="muted">${echapperHTML(utilisateur.email)}</p>
+        <p class="muted">${echapperHTML(utilisateur.email || "Non précisé")}</p>
         <span class="badge primary">Compte client</span>
       </div>
     </div>
     <div class="profile-fields">
-      <div><strong>Nom</strong><br><span class="muted">${echapperHTML(utilisateur.nom || "Non précisé")}</span></div>
-      <div><strong>Prénom</strong><br><span class="muted">${echapperHTML(utilisateur.prenom || "Non précisé")}</span></div>
-      <div><strong>Email</strong><br><span class="muted">${echapperHTML(utilisateur.email || "Non précisé")}</span></div>
-      <div><strong>Téléphone</strong><br><span class="muted">Non disponible dans cette session</span></div>
-      <div><strong>Commune</strong><br><span class="muted">Non disponible dans cette session</span></div>
-      <div><strong>Adresse</strong><br><span class="muted">Non disponible dans cette session</span></div>
+      <div><strong>Nom</strong><br><span class="muted">${echapperHTML(valeurProfil(utilisateur.nom))}</span></div>
+      <div><strong>Prénom</strong><br><span class="muted">${echapperHTML(valeurProfil(utilisateur.prenom))}</span></div>
+      <div><strong>Email</strong><br><span class="muted">${echapperHTML(valeurProfil(utilisateur.email))}</span></div>
+      <div><strong>Téléphone</strong><br><span class="muted">${echapperHTML(valeurProfil(profil.telephone))}</span></div>
+      <div><strong>Ville</strong><br><span class="muted">${echapperHTML(valeurProfil(profil.ville))}</span></div>
+      <div><strong>Adresse</strong><br><span class="muted">${echapperHTML(valeurProfil(profil.adresse))}</span></div>
     </div>
   `;
 }
 
-// Modifier la photo de profil
-function initialiserPhotoClient() {
-  const form = document.getElementById("client-photo-form");
-  if (!form) return;
+function definirValeurChamp(id, valeur) {
+  const champ = document.getElementById(id);
+  if (champ) champ.value = valeur ?? "";
+}
 
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const input = document.getElementById("client-photo-input");
-    if (!input.files.length) {
-      afficherToast("Veuillez choisir une image.", "error");
+function photoClientCourante() {
+  return profilClientCourant?.utilisateur?.photo_profil || window.utilisateurCourant?.photo_profil || null;
+}
+
+function definirApercuPhotoClient(chemin) {
+  const apercu = document.getElementById("client-profile-photo-preview");
+  if (apercu) apercu.src = imageProfil(chemin);
+}
+
+function libererApercuClient() {
+  if (clientPhotoTemporaireUrl) {
+    URL.revokeObjectURL(clientPhotoTemporaireUrl);
+    clientPhotoTemporaireUrl = null;
+  }
+}
+
+function reinitialiserPhotoClientTemporaire() {
+  const input = document.getElementById("client-profile-photo");
+  if (input) input.value = "";
+  clientPhotoASupprimer = false;
+  libererApercuClient();
+  definirApercuPhotoClient(photoClientCourante());
+}
+
+function remplirModaleProfilClient() {
+  const utilisateur = profilClientCourant?.utilisateur || window.utilisateurCourant || {};
+  const profil = profilClientCourant?.profil || {};
+
+  definirValeurChamp("client-profile-nom", utilisateur.nom || "");
+  definirValeurChamp("client-profile-prenom", utilisateur.prenom || "");
+  definirValeurChamp("client-profile-email", utilisateur.email || "");
+  definirValeurChamp("client-profile-telephone", profil.telephone || "");
+  definirValeurChamp("client-profile-ville", profil.ville || "");
+  definirValeurChamp("client-profile-adresse", profil.adresse || "");
+  reinitialiserPhotoClientTemporaire();
+}
+
+function reinitialiserModaleProfilClient() {
+  document.getElementById("client-profile-form")?.reset();
+  reinitialiserPhotoClientTemporaire();
+}
+
+async function ouvrirModaleProfilClient() {
+  try {
+    if (!profilClientCourant) {
+      await chargerProfilClientDashboard();
+    }
+    remplirModaleProfilClient();
+    ouvrirModale("client-profile-modal");
+  } catch (error) {
+    afficherToast(error.message, "error");
+  }
+}
+
+// Initialiser la modification du profil client
+function initialiserProfilClient() {
+  document.getElementById("client-edit-profile-btn")?.addEventListener("click", ouvrirModaleProfilClient);
+
+  document.getElementById("client-profile-photo")?.addEventListener("change", (event) => {
+    const fichier = event.target.files[0];
+    if (!fichier) return;
+
+    const typesAutorises = ["image/jpeg", "image/png", "image/webp"];
+    if (!typesAutorises.includes(fichier.type)) {
+      afficherToast("Veuillez choisir une image JPEG, PNG ou WebP.", "error");
+      event.target.value = "";
       return;
     }
 
-    const data = new FormData();
-    data.append("photo", input.files[0]);
+    libererApercuClient();
+    clientPhotoASupprimer = false;
+    clientPhotoTemporaireUrl = URL.createObjectURL(fichier);
+    definirApercuPhotoClient(clientPhotoTemporaireUrl);
+  });
+
+  document.getElementById("client-profile-photo-delete")?.addEventListener("click", () => {
+    const input = document.getElementById("client-profile-photo");
+    if (input) input.value = "";
+    libererApercuClient();
+    clientPhotoASupprimer = true;
+    definirApercuPhotoClient(null);
+  });
+
+  document.getElementById("client-profile-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const bouton = form.querySelector("button[type='submit']");
+    const telephone = document.getElementById("client-profile-telephone").value.trim();
+    const ville = document.getElementById("client-profile-ville").value.trim();
+    const adresse = document.getElementById("client-profile-adresse").value.trim();
+
+    if (!telephone || !ville || !adresse) {
+      afficherToast("Veuillez remplir les champs obligatoires.", "error");
+      return;
+    }
+
+    bouton.disabled = true;
 
     try {
-      const reponse = await requeteAPI("/api/auth/photo", {
+      await requeteAPI("/api/auth/profile", {
         method: "PUT",
-        body: data
+        body: JSON.stringify({ telephone, ville, adresse })
       });
-      window.utilisateurCourant.photo_profil = reponse.photo_profil;
-      document.getElementById("client-photo-preview").src = reponse.photo_profil;
+
+      const inputPhoto = document.getElementById("client-profile-photo");
+      if (inputPhoto?.files.length) {
+        const data = new FormData();
+        data.append("photo", inputPhoto.files[0]);
+        const reponse = await requeteAPI("/api/auth/photo", {
+          method: "PUT",
+          body: data
+        });
+        window.utilisateurCourant.photo_profil = reponse.photo_profil;
+      } else if (clientPhotoASupprimer) {
+        await requeteAPI("/api/auth/photo", { method: "DELETE" });
+        window.utilisateurCourant.photo_profil = null;
+      }
+
+      await chargerProfilClientDashboard();
       construireHeader();
-      afficherToast("Photo de profil mise à jour.");
-      form.reset();
+      fermerModale("client-profile-modal");
+      reinitialiserModaleProfilClient();
+      afficherToast("Profil mis à jour avec succès.");
     } catch (error) {
       afficherToast(error.message, "error");
+    } finally {
+      bouton.disabled = false;
     }
   });
 
-  document.getElementById("client-photo-delete")?.addEventListener("click", async () => {
-    try {
-      await requeteAPI("/api/auth/photo", { method: "DELETE" });
-      window.utilisateurCourant.photo_profil = null;
-      document.getElementById("client-photo-preview").src = DEFAULT_AVATAR;
-      construireHeader();
-      afficherToast("Photo de profil supprimée.");
-    } catch (error) {
-      afficherToast(error.message, "error");
+  document.addEventListener("click", (event) => {
+    const fermerProfil = event.target.closest('[data-close-modal="client-profile-modal"]') || event.target.id === "client-profile-modal";
+    if (fermerProfil) {
+      window.setTimeout(reinitialiserModaleProfilClient, 0);
     }
   });
 }
@@ -249,9 +425,15 @@ function initialiserPhotoClient() {
 document.addEventListener("DOMContentLoaded", async () => {
   await attendreSession();
   if (!window.utilisateurCourant || window.utilisateurCourant.role !== "client") return;
-  afficherProfilClient();
+  mettreAJourBienvenueClient();
+  try {
+    await chargerProfilClientDashboard();
+  } catch (error) {
+    const cible = document.getElementById("client-profile-card");
+    if (cible) cible.innerHTML = etatVide(error.message);
+  }
   afficherStatsClient();
-  initialiserPhotoClient();
+  initialiserProfilClient();
   initialiserActionsClient();
   chargerDemandesClient();
 });

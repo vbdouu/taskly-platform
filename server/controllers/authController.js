@@ -194,6 +194,198 @@ function utilisateurConnecte(req, res) {
     });
 }
 
+// Recuperer le profil complet de l'utilisateur connecte
+async function recupererProfil(req, res) {
+    try {
+        const userId = req.session.utilisateur.id;
+        const role = req.session.utilisateur.role;
+
+        if (role === "client") {
+            const utilisateur = await userModel.trouverUtilisateurParId(userId);
+            const profil = await clientModel.trouverClientParUserId(userId);
+
+            if (!utilisateur) {
+                return res.status(404).json({
+                    message: "Utilisateur introuvable."
+                });
+            }
+
+            if (!profil) {
+                return res.status(404).json({
+                    message: "Profil client introuvable."
+                });
+            }
+
+            return res.status(200).json({
+                utilisateur: {
+                    id: utilisateur.id,
+                    nom: utilisateur.nom,
+                    prenom: utilisateur.prenom,
+                    email: utilisateur.email,
+                    role: utilisateur.role,
+                    photo_profil: utilisateur.photo_profil
+                },
+                profil: {
+                    telephone: profil.telephone,
+                    ville: profil.ville,
+                    adresse: profil.adresse
+                }
+            });
+        }
+
+        if (role === "artisan") {
+            const profil = await artisanModel.trouverProfilArtisanCompletParUserId(userId);
+
+            if (!profil) {
+                return res.status(404).json({
+                    message: "Profil artisan introuvable."
+                });
+            }
+
+            return res.status(200).json({
+                utilisateur: {
+                    id: profil.user_id,
+                    nom: profil.nom,
+                    prenom: profil.prenom,
+                    email: profil.email,
+                    role: profil.role,
+                    photo_profil: profil.photo_profil
+                },
+                profil: {
+                    id: profil.id,
+                    service_id: profil.service_id,
+                    service_nom: profil.service_nom,
+                    telephone: profil.telephone,
+                    ville: profil.ville,
+                    experience: profil.experience,
+                    description: profil.description,
+                    moyenne_notes: profil.moyenne_notes,
+                    total_avis: profil.total_avis
+                }
+            });
+        }
+
+        return res.status(403).json({
+            message: "La modification du profil n'est pas disponible pour ce role."
+        });
+    } catch (error) {
+        console.error("Erreur recuperation profil :", error.message);
+
+        res.status(500).json({
+            message: "Erreur serveur."
+        });
+    }
+}
+
+// Modifier le profil de l'utilisateur connecte
+async function modifierProfil(req, res) {
+    try {
+        const userId = req.session.utilisateur.id;
+        const role = req.session.utilisateur.role;
+
+        if (role === "client") {
+            const telephone = String(req.body.telephone || "").trim();
+            const ville = String(req.body.ville || "").trim();
+            const adresse = String(req.body.adresse || "").trim();
+
+            if (!telephone || !ville || !adresse) {
+                return res.status(400).json({
+                    message: "Veuillez remplir les champs obligatoires."
+                });
+            }
+
+            const profilExistant = await clientModel.trouverClientParUserId(userId);
+
+            if (!profilExistant) {
+                return res.status(404).json({
+                    message: "Profil client introuvable."
+                });
+            }
+
+            await clientModel.modifierProfilClient(userId, telephone, ville, adresse);
+
+            const profil = await clientModel.trouverClientParUserId(userId);
+
+            return res.status(200).json({
+                message: "Profil mis a jour avec succes.",
+                profil: {
+                    telephone: profil.telephone,
+                    ville: profil.ville,
+                    adresse: profil.adresse
+                }
+            });
+        }
+
+        if (role === "artisan") {
+            const telephone = String(req.body.telephone || "").trim();
+            const ville = String(req.body.ville || "").trim();
+            const description = req.body.description === undefined || req.body.description === null
+                ? ""
+                : String(req.body.description).trim();
+            const experienceTexte = req.body.experience === undefined || req.body.experience === null
+                ? ""
+                : String(req.body.experience).trim();
+
+            if (!telephone || !ville || !experienceTexte) {
+                return res.status(400).json({
+                    message: "Veuillez remplir les champs obligatoires."
+                });
+            }
+
+            const experience = Number(experienceTexte);
+
+            if (!Number.isInteger(experience) || experience < 0) {
+                return res.status(400).json({
+                    message: "L'experience doit etre un nombre entier positif."
+                });
+            }
+
+            const profilExistant = await artisanModel.trouverArtisanParUserId(userId);
+
+            if (!profilExistant) {
+                return res.status(404).json({
+                    message: "Profil artisan introuvable."
+                });
+            }
+
+            await artisanModel.modifierProfilArtisan(
+                userId,
+                telephone,
+                ville,
+                description || null,
+                experience
+            );
+
+            const profil = await artisanModel.trouverProfilArtisanCompletParUserId(userId);
+
+            return res.status(200).json({
+                message: "Profil mis a jour avec succes.",
+                profil: {
+                    id: profil.id,
+                    service_id: profil.service_id,
+                    service_nom: profil.service_nom,
+                    telephone: profil.telephone,
+                    ville: profil.ville,
+                    experience: profil.experience,
+                    description: profil.description,
+                    moyenne_notes: profil.moyenne_notes,
+                    total_avis: profil.total_avis
+                }
+            });
+        }
+
+        return res.status(403).json({
+            message: "La modification du profil n'est pas disponible pour ce role."
+        });
+    } catch (error) {
+        console.error("Erreur modification profil :", error.message);
+
+        res.status(500).json({
+            message: "Erreur serveur."
+        });
+    }
+}
+
 // Modifier la photo de profil de l'utilisateur connecte
 async function modifierPhotoProfil(req, res) {
     try {
@@ -284,6 +476,8 @@ module.exports = {  // on exporte les fonctions pour pouvoir les utiliser dans d
     connexion,
     deconnexion,
     utilisateurConnecte,
+    recupererProfil,
+    modifierProfil,
     modifierPhotoProfil,
     supprimerPhotoProfil
 };

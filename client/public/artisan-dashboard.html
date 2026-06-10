@@ -56,26 +56,79 @@
         </section>
 
         <section class="panel" id="profil">
-          <div class="panel-header">
+          <div class="panel-header profile-panel-header">
             <h2>Mon profil</h2>
+            <button class="btn outline" id="artisan-edit-profile-btn" type="button">Modifier le profil</button>
           </div>
           <div class="panel-body">
             <div id="artisan-profile-card"></div>
-            <form id="artisan-photo-form" class="mt-22">
-              <label>
-                <span class="field-label">Photo de profil</span>
-                <input class="form-control" id="artisan-photo-input" type="file" accept="image/jpeg,image/png,image/webp">
-              </label>
-              <div class="request-actions">
-                <button class="btn primary" type="submit">Mettre à jour</button>
-                <button class="btn danger outline" type="button" id="artisan-photo-delete">Supprimer</button>
-              </div>
-            </form>
           </div>
         </section>
       </div>
     </section>
   </main>
+
+  <!-- Modale profil -->
+  <div id="artisan-profile-modal" class="modal-backdrop">
+    <div class="modal profile-edit-modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2>Modifier le profil</h2>
+        <button class="modal-close" type="button" data-close-modal="artisan-profile-modal">×</button>
+      </div>
+      <form class="modal-body profile-edit-form" id="artisan-profile-form">
+        <div class="profile-edit-photo">
+          <img class="profile-edit-photo-preview" id="artisan-profile-photo-preview" src="/images/defaults/avatar.png" alt="Photo de profil" onerror="this.src='/images/defaults/avatar.png'">
+          <div>
+            <label>
+              <span class="field-label">Photo de profil</span>
+              <input class="form-control" id="artisan-profile-photo" type="file" accept="image/jpeg,image/png,image/webp">
+            </label>
+            <button class="btn danger outline small mt-12" id="artisan-profile-photo-delete" type="button">Supprimer la photo</button>
+          </div>
+        </div>
+
+        <div class="profile-edit-grid">
+          <label>
+            <span class="field-label">Nom</span>
+            <input class="form-control profile-edit-readonly" id="artisan-profile-nom" type="text" readonly>
+          </label>
+          <label>
+            <span class="field-label">Prénom</span>
+            <input class="form-control profile-edit-readonly" id="artisan-profile-prenom" type="text" readonly>
+          </label>
+          <label>
+            <span class="field-label">Email</span>
+            <input class="form-control profile-edit-readonly" id="artisan-profile-email" type="email" readonly>
+          </label>
+          <label>
+            <span class="field-label">Service</span>
+            <input class="form-control profile-edit-readonly" id="artisan-profile-service" type="text" readonly>
+          </label>
+          <label>
+            <span class="field-label">Téléphone</span>
+            <input class="form-control" id="artisan-profile-telephone" type="tel" required>
+          </label>
+          <label>
+            <span class="field-label">Ville</span>
+            <input class="form-control" id="artisan-profile-ville" type="text" required>
+          </label>
+          <label>
+            <span class="field-label">Expérience</span>
+            <input class="form-control" id="artisan-profile-experience" type="number" min="0" step="1" required>
+          </label>
+          <label class="profile-edit-full">
+            <span class="field-label">Description</span>
+            <textarea class="form-textarea" id="artisan-profile-description"></textarea>
+          </label>
+        </div>
+
+        <div class="request-actions mt-22 justify-end">
+          <button class="btn outline" type="button" data-close-modal="artisan-profile-modal">Annuler</button>
+          <button class="btn primary" type="submit">Enregistrer les modifications</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Modale annulation -->
   <div id="cancel-artisan-modal" class="modal-backdrop">

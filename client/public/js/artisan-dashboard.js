@@ -1,6 +1,22 @@
 let demandesArtisan = [];
 let profilArtisanCourant = null;
 
+let artisanPhotoASupprimer = false;
+let artisanPhotoTemporaireUrl = null;
+
+function valeurProfilArtisan(valeur) {
+  const texte = String(valeur ?? "").trim();
+  return texte || "Non précisé";
+}
+
+function synchroniserUtilisateurArtisan(utilisateur) {
+  if (!utilisateur) return;
+  window.utilisateurCourant = {
+    ...(window.utilisateurCourant || {}),
+    ...utilisateur
+  };
+}
+
 // Calculer les compteurs artisan
 function statsDemandesArtisan(demandes) {
   return {
@@ -35,7 +51,7 @@ function carteDemandeArtisan(demande) {
       <div class="request-head">
         <div>
           <h3>${echapperHTML(nomComplet(demande, "client_"))}</h3>
-          <p class="muted">${echapperHTML(demande.client_ville || "Commune non précisée")} · ${echapperHTML(demande.client_telephone || "Téléphone non précisé")}</p>
+          <p class="muted">${echapperHTML(demande.client_ville || "Ville non précisée")} · ${echapperHTML(demande.client_telephone || "Téléphone non précisé")}</p>
         </div>
         ${badgeStatut(demande.statut)}
       </div>
@@ -186,49 +202,59 @@ function initialiserActionsArtisan() {
   });
 }
 
+function mettreAJourBienvenueArtisan() {
+  const bienvenue = document.getElementById("artisan-welcome");
+  if (bienvenue && window.utilisateurCourant) {
+    bienvenue.textContent = `Bienvenue ${nomComplet(window.utilisateurCourant)}`;
+  }
+}
+
 // Charger le profil de l'artisan connecte
 async function chargerProfilArtisanDashboard() {
   const cible = document.getElementById("artisan-profile-card");
+  if (cible) cible.innerHTML = etatChargement("Chargement du profil...");
+
+  const data = await requeteAPI("/api/auth/profile");
+  profilArtisanCourant = data.profil;
+  synchroniserUtilisateurArtisan(data.utilisateur);
+  afficherProfilArtisan();
+  chargerAvisArtisan();
+  return data;
+}
+
+// Afficher le profil artisan
+function afficherProfilArtisan() {
+  const cible = document.getElementById("artisan-profile-card");
   if (!cible || !window.utilisateurCourant) return;
 
-  try {
-    const { artisans } = await requeteAPI("/api/artisans");
-    profilArtisanCourant = artisans.find((artisan) => artisan.user_id === window.utilisateurCourant.id);
-  } catch (error) {
-    profilArtisanCourant = null;
-  }
-
   const utilisateur = window.utilisateurCourant;
-  const bienvenue = document.getElementById("artisan-welcome");
-  if (bienvenue) {
-    bienvenue.textContent = `Bienvenue ${nomComplet(utilisateur)}`;
-  }
+  const profil = profilArtisanCourant || {};
+
+  mettreAJourBienvenueArtisan();
 
   cible.innerHTML = `
     <div class="profile-panel">
-      <img class="avatar large" id="artisan-photo-preview" src="${echapperHTML(imageProfil(profilArtisanCourant?.photo_profil))}" alt="${echapperHTML(nomComplet(utilisateur))}" onerror="this.src='${DEFAULT_AVATAR}'">
+      <img class="avatar large" src="${echapperHTML(imageProfil(utilisateur.photo_profil))}" alt="${echapperHTML(nomComplet(utilisateur))}" onerror="this.src='${DEFAULT_AVATAR}'">
       <div>
         <h3>${echapperHTML(nomComplet(utilisateur))}</h3>
-        <p class="muted">${echapperHTML(profilArtisanCourant?.service_nom || "Artisan Taskly")} · ${echapperHTML(profilArtisanCourant?.ville || "")}</p>
+        <p class="muted">${echapperHTML(profil.service_nom || "Artisan Taskly")} · ${echapperHTML(profil.ville || "")}</p>
         <div class="meta-row mt-12">
-          <span class="badge primary">${Number(profilArtisanCourant?.experience || 0)} an(s) d'expérience</span>
-          <span class="badge accent">${echapperHTML(noteArtisan(profilArtisanCourant || {}))}</span>
+          <span class="badge primary">${Number(profil.experience || 0)} an(s) d'expérience</span>
+          <span class="badge accent">${echapperHTML(noteArtisan(profil))}</span>
         </div>
       </div>
     </div>
     <div class="profile-fields">
-      <div><strong>Nom</strong><br><span class="muted">${echapperHTML(utilisateur.nom || "Non précisé")}</span></div>
-      <div><strong>Prénom</strong><br><span class="muted">${echapperHTML(utilisateur.prenom || "Non précisé")}</span></div>
-      <div><strong>Email</strong><br><span class="muted">${echapperHTML(utilisateur.email || "Non précisé")}</span></div>
-      <div><strong>Téléphone</strong><br><span class="muted">${echapperHTML(profilArtisanCourant?.telephone || "Non précisé")}</span></div>
-      <div><strong>Service</strong><br><span class="muted">${echapperHTML(profilArtisanCourant?.service_nom || "Non précisé")}</span></div>
-      <div><strong>Commune</strong><br><span class="muted">${echapperHTML(profilArtisanCourant?.ville || "Non précisée")}</span></div>
-      <div><strong>Expérience</strong><br><span class="muted">${Number(profilArtisanCourant?.experience || 0)} an(s)</span></div>
-      <div><strong>Description</strong><br><span class="muted">${echapperHTML(profilArtisanCourant?.description || "Non précisée")}</span></div>
+      <div><strong>Nom</strong><br><span class="muted">${echapperHTML(valeurProfilArtisan(utilisateur.nom))}</span></div>
+      <div><strong>Prénom</strong><br><span class="muted">${echapperHTML(valeurProfilArtisan(utilisateur.prenom))}</span></div>
+      <div><strong>Email</strong><br><span class="muted">${echapperHTML(valeurProfilArtisan(utilisateur.email))}</span></div>
+      <div><strong>Téléphone</strong><br><span class="muted">${echapperHTML(valeurProfilArtisan(profil.telephone))}</span></div>
+      <div><strong>Service</strong><br><span class="muted">${echapperHTML(valeurProfilArtisan(profil.service_nom))}</span></div>
+      <div><strong>Ville</strong><br><span class="muted">${echapperHTML(valeurProfilArtisan(profil.ville))}</span></div>
+      <div><strong>Expérience</strong><br><span class="muted">${Number(profil.experience || 0)} an(s)</span></div>
+      <div><strong>Description</strong><br><span class="muted">${echapperHTML(valeurProfilArtisan(profil.description))}</span></div>
     </div>
   `;
-
-  chargerAvisArtisan();
 }
 
 // Charger les avis de l'artisan
@@ -268,48 +294,154 @@ async function chargerAvisArtisan() {
   }
 }
 
-// Modifier la photo de profil
-function initialiserPhotoArtisan() {
-  const form = document.getElementById("artisan-photo-form");
-  if (!form) return;
+function definirValeurChampArtisan(id, valeur) {
+  const champ = document.getElementById(id);
+  if (champ) champ.value = valeur ?? "";
+}
 
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const input = document.getElementById("artisan-photo-input");
-    if (!input.files.length) {
-      afficherToast("Veuillez choisir une image.", "error");
+function photoArtisanCourante() {
+  return window.utilisateurCourant?.photo_profil || null;
+}
+
+function definirApercuPhotoArtisan(chemin) {
+  const apercu = document.getElementById("artisan-profile-photo-preview");
+  if (apercu) apercu.src = imageProfil(chemin);
+}
+
+function libererApercuArtisan() {
+  if (artisanPhotoTemporaireUrl) {
+    URL.revokeObjectURL(artisanPhotoTemporaireUrl);
+    artisanPhotoTemporaireUrl = null;
+  }
+}
+
+function reinitialiserPhotoArtisanTemporaire() {
+  const input = document.getElementById("artisan-profile-photo");
+  if (input) input.value = "";
+  artisanPhotoASupprimer = false;
+  libererApercuArtisan();
+  definirApercuPhotoArtisan(photoArtisanCourante());
+}
+
+function remplirModaleProfilArtisan() {
+  const utilisateur = window.utilisateurCourant || {};
+  const profil = profilArtisanCourant || {};
+
+  definirValeurChampArtisan("artisan-profile-nom", utilisateur.nom || "");
+  definirValeurChampArtisan("artisan-profile-prenom", utilisateur.prenom || "");
+  definirValeurChampArtisan("artisan-profile-email", utilisateur.email || "");
+  definirValeurChampArtisan("artisan-profile-service", profil.service_nom || "");
+  definirValeurChampArtisan("artisan-profile-telephone", profil.telephone || "");
+  definirValeurChampArtisan("artisan-profile-ville", profil.ville || "");
+  definirValeurChampArtisan("artisan-profile-experience", profil.experience ?? "");
+  definirValeurChampArtisan("artisan-profile-description", profil.description || "");
+  reinitialiserPhotoArtisanTemporaire();
+}
+
+function reinitialiserModaleProfilArtisan() {
+  document.getElementById("artisan-profile-form")?.reset();
+  reinitialiserPhotoArtisanTemporaire();
+}
+
+async function ouvrirModaleProfilArtisan() {
+  try {
+    if (!profilArtisanCourant) {
+      await chargerProfilArtisanDashboard();
+    }
+    remplirModaleProfilArtisan();
+    ouvrirModale("artisan-profile-modal");
+  } catch (error) {
+    afficherToast(error.message, "error");
+  }
+}
+
+// Initialiser la modification du profil artisan
+function initialiserProfilArtisan() {
+  document.getElementById("artisan-edit-profile-btn")?.addEventListener("click", ouvrirModaleProfilArtisan);
+
+  document.getElementById("artisan-profile-photo")?.addEventListener("change", (event) => {
+    const fichier = event.target.files[0];
+    if (!fichier) return;
+
+    const typesAutorises = ["image/jpeg", "image/png", "image/webp"];
+    if (!typesAutorises.includes(fichier.type)) {
+      afficherToast("Veuillez choisir une image JPEG, PNG ou WebP.", "error");
+      event.target.value = "";
       return;
     }
 
-    const data = new FormData();
-    data.append("photo", input.files[0]);
+    libererApercuArtisan();
+    artisanPhotoASupprimer = false;
+    artisanPhotoTemporaireUrl = URL.createObjectURL(fichier);
+    definirApercuPhotoArtisan(artisanPhotoTemporaireUrl);
+  });
+
+  document.getElementById("artisan-profile-photo-delete")?.addEventListener("click", () => {
+    const input = document.getElementById("artisan-profile-photo");
+    if (input) input.value = "";
+    libererApercuArtisan();
+    artisanPhotoASupprimer = true;
+    definirApercuPhotoArtisan(null);
+  });
+
+  document.getElementById("artisan-profile-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const bouton = form.querySelector("button[type='submit']");
+    const telephone = document.getElementById("artisan-profile-telephone").value.trim();
+    const ville = document.getElementById("artisan-profile-ville").value.trim();
+    const experienceTexte = document.getElementById("artisan-profile-experience").value.trim();
+    const description = document.getElementById("artisan-profile-description").value.trim();
+    const experience = Number(experienceTexte);
+
+    if (!telephone || !ville || !experienceTexte) {
+      afficherToast("Veuillez remplir les champs obligatoires.", "error");
+      return;
+    }
+
+    if (!Number.isInteger(experience) || experience < 0) {
+      afficherToast("L'expérience doit être un nombre supérieur ou égal à 0.", "error");
+      return;
+    }
+
+    bouton.disabled = true;
 
     try {
-      const reponse = await requeteAPI("/api/auth/photo", {
+      await requeteAPI("/api/auth/profile", {
         method: "PUT",
-        body: data
+        body: JSON.stringify({ telephone, ville, experience, description })
       });
-      window.utilisateurCourant.photo_profil = reponse.photo_profil;
-      if (profilArtisanCourant) profilArtisanCourant.photo_profil = reponse.photo_profil;
-      document.getElementById("artisan-photo-preview").src = reponse.photo_profil;
+
+      const inputPhoto = document.getElementById("artisan-profile-photo");
+      if (inputPhoto?.files.length) {
+        const data = new FormData();
+        data.append("photo", inputPhoto.files[0]);
+        const reponse = await requeteAPI("/api/auth/photo", {
+          method: "PUT",
+          body: data
+        });
+        window.utilisateurCourant.photo_profil = reponse.photo_profil;
+      } else if (artisanPhotoASupprimer) {
+        await requeteAPI("/api/auth/photo", { method: "DELETE" });
+        window.utilisateurCourant.photo_profil = null;
+      }
+
+      await chargerProfilArtisanDashboard();
       construireHeader();
-      afficherToast("Photo de profil mise à jour.");
-      form.reset();
+      fermerModale("artisan-profile-modal");
+      reinitialiserModaleProfilArtisan();
+      afficherToast("Profil mis à jour avec succès.");
     } catch (error) {
       afficherToast(error.message, "error");
+    } finally {
+      bouton.disabled = false;
     }
   });
 
-  document.getElementById("artisan-photo-delete")?.addEventListener("click", async () => {
-    try {
-      await requeteAPI("/api/auth/photo", { method: "DELETE" });
-      window.utilisateurCourant.photo_profil = null;
-      if (profilArtisanCourant) profilArtisanCourant.photo_profil = null;
-      document.getElementById("artisan-photo-preview").src = DEFAULT_AVATAR;
-      construireHeader();
-      afficherToast("Photo de profil supprimée.");
-    } catch (error) {
-      afficherToast(error.message, "error");
+  document.addEventListener("click", (event) => {
+    const fermerProfil = event.target.closest('[data-close-modal="artisan-profile-modal"]') || event.target.id === "artisan-profile-modal";
+    if (fermerProfil) {
+      window.setTimeout(reinitialiserModaleProfilArtisan, 0);
     }
   });
 }
@@ -317,9 +449,16 @@ function initialiserPhotoArtisan() {
 document.addEventListener("DOMContentLoaded", async () => {
   await attendreSession();
   if (!window.utilisateurCourant || window.utilisateurCourant.role !== "artisan") return;
-  await chargerProfilArtisanDashboard();
+  mettreAJourBienvenueArtisan();
+  try {
+    await chargerProfilArtisanDashboard();
+  } catch (error) {
+    const cible = document.getElementById("artisan-profile-card");
+    if (cible) cible.innerHTML = etatVide(error.message);
+    chargerAvisArtisan();
+  }
   afficherStatsArtisan();
-  initialiserPhotoArtisan();
+  initialiserProfilArtisan();
   initialiserActionsArtisan();
   chargerDemandesArtisan();
 });
